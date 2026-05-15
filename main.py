@@ -94,7 +94,7 @@ def delete(note_id:str= Path(..., description="Note ID", examples=["N001"])):
     return JSONResponse(status_code=200, content={"message":"Note ID deleted successfully"})
 
 
-@app.put("notes/{note_id}")
+@app.put("/notes/{note_id}")
 def update(note_id:str, update_note:Updated_notes):
     data=load_data()
 
@@ -106,3 +106,19 @@ def update(note_id:str, update_note:Updated_notes):
     save_data(data)
 
     return JSONResponse(status_code=200, content={"message":"Updated successfully"})
+
+
+@app.get("/search")
+def search(title:str= Query(..., description="Title of note")):
+    data=load_data()
+
+    result={}
+
+    for note_id, note in data.items():
+        if title.lower() in note.get("title","").lower():
+            result[note_id]=note
+        
+    if not result:
+        raise HTTPException(status_code=404, detail="Title not found")
+    
+    return result

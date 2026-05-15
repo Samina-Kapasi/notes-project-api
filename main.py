@@ -123,7 +123,7 @@ def search(title:str= Query(..., description="Title of note")):
     
     return result
 
-@app.get("/filter")
+@app.get("/filter_category")
 def filter(category:str=Query(description="Category name of note")):
     data=load_data()
 
@@ -133,6 +133,21 @@ def filter(category:str=Query(description="Category name of note")):
         if note.get("category","")==category:
             result[note_id]=note
         
+    if not result:
+        raise HTTPException(status_code=404, detail="Information not found")
+    
+    return result
+
+@app.get("/filter_completed_notes")
+def filter(completed:bool=Query(description="Completion status of note")):
+    data=load_data()
+
+    result={}
+
+    for note_id, note in data.items():
+        if note.get("completed", "")==completed:
+            result[note_id]=note
+    
     if not result:
         raise HTTPException(status_code=404, detail="Information not found")
     

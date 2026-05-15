@@ -110,15 +110,30 @@ def update(note_id:str, update_note:Updated_notes):
 
 @app.get("/search")
 def search(title:str= Query(..., description="Title of note")):
-    data=load_data()
+    data= load_data()
 
     result={}
 
     for note_id, note in data.items():
         if title.lower() in note.get("title","").lower():
             result[note_id]=note
-        
+
     if not result:
         raise HTTPException(status_code=404, detail="Title not found")
+    
+    return result
+
+@app.get("/filter")
+def filter(category:str=Query(description="Category name of note")):
+    data=load_data()
+
+    result={}
+
+    for note_id, note in data.items():
+        if note.get("category","")==category:
+            result[note_id]=note
+        
+    if not result:
+        raise HTTPException(status_code=404, detail="Information not found")
     
     return result

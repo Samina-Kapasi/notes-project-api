@@ -1,26 +1,15 @@
 from fastapi import FastAPI, HTTPException, Path, Query
 import json
-from pydantic import BaseModel, Field
-from typing import Annotated, Optional
 from fastapi.responses import JSONResponse
+from schemas import Notes, Updated_notes
+from database import engine
+from models import Base
+
 
 app= FastAPI()
 
-class Notes(BaseModel):
-    id:Annotated[str, Field(..., description="Note ID", examples=['N001'])]
-    title:Annotated[str, Field(..., min_length=3, max_length=100,description="Title of note")]
-    content:Annotated[str, Field(..., description="Content of note")]
-    category:Annotated[str, Field(..., description="Category of note")]
-    author:Annotated[str, Field(..., description="Author of the note")]
-    completed:Annotated[bool, Field( default=False,description="Completion status of note")]
 
-class Updated_notes(BaseModel):
-    title:Annotated[str, Optional, Field(description="Note title")]
-    content:Annotated[str, Optional, Field( description="Note content")]
-    category:Annotated[str, Optional, Field(description="Note category")]
-    author:Annotated[str, Optional, Field(description="Author of the note")]
-    completed:Annotated[bool, Optional, Field(description="Completion status of node")]
-
+Base.metadata.create_all(bind=engine)
 
 def load_data():
     with open('notes.json', 'r') as f:
@@ -34,7 +23,7 @@ def save_data(data):
 
 @app.get("/")
 def home():
-    return {"message":"Home URL"}
+    return {"message":"Database connected"}
 
 
 @app.get("/notes")

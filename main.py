@@ -1,9 +1,8 @@
-from fastapi import FastAPI, HTTPException, Path, Query
-import json
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException,Query, Depends
 from schemas import Notes, Updated_notes
-from database import engine
-from models import Base
+from database import engine, SessionLocal
+from models import Base, Note
+from sqlalchemy.orm import Session
 
 
 app= FastAPI()
@@ -11,14 +10,13 @@ app= FastAPI()
 
 Base.metadata.create_all(bind=engine)
 
-def load_data():
-    with open('notes.json', 'r') as f:
-        data= json.load(f)
-    return data
+def get_db():
+    db=SessionLocal()
 
-def save_data(data):
-    with open('notes.json', 'w') as f:
-        data=json.dump(data, f)
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @app.get("/")
@@ -26,118 +24,93 @@ def home():
     return {"message":"Database connected"}
 
 
-@app.get("/notes")
-def view_notes():
-    data=load_data()
-    return data
+@app.get("/test-db")
+def test_db(db:Session= Depends(get_db)):
+    return {"message":"Database connection working properly"}
 
-@app.get("/notes/{note_id}")
-def notes_id(note_id: str=Path(..., description="Enter note ID", examples=['N001'])):
-    data= load_data()
-
-    if note_id not in data:
-        raise HTTPException(status_code=401, detail="Note not found")
+@app.post("/notes-db")
+def notes_db(notes:Notes, db:Session=Depends(get_db)):
     
-    return data[note_id]
+    new_notes=Note(
+        id=notes.id,
+        title=notes.title,
+        content=notes.content,
+        category=notes.category,
+        author=notes.author,
+        completed=notes.completed
+    )
 
-@app.get("/sort_notes")
-def sort_notes(order:str = Query(description="[asc, desc]")):
-    data= load_data()
+    db.add(new_notes)
+    db.commit()
 
-    if order not in ['asc','desc']:
-        raise HTTPException(status_code=400, detail="Invalid choose")
-    
-    if order=='desc':
-        sort_order=True
-    else:
-        sort_order=False
-    
-    sorted_data=sorted(data.items(), key=lambda x: x[0], reverse=sort_order)
+    return {"message":"Record added successfully"}
 
-    return dict(sorted_data)
+@app.get("/get_notes")
+def get_notes(db:Session=Depends(get_db)):
 
-@app.post("/notes")
-def create(notes:Notes):
-    data=load_data()
+    notes=db.query(Note).all()
 
-    if notes.id in data:
-        raise HTTPException(status_code=409, detail="Note already existed")
-    
-    data[notes.id]=notes.model_dump(exclude=['id'])
+    return notes
 
-    save_data(data)
+@app.get("/get_note/{note_id}")
+def get_note(note_id:str, db:Session=Depends(get_db)):
 
-    return JSONResponse(status_code=201, content={"message":"Note added successfully"})
+    note=db.query(Note).filter(Note.id==note_id).first()
 
-@app.delete("/delete/{note_id}")
-def delete(note_id:str= Path(..., description="Note ID", examples=["N001"])):
-    data=load_data()
+    return note
 
-    if note_id not in data:
-        raise HTTPException(status_code=404, detail="Note ID not found")
-    
-    del data[note_id]
+@app.delete("/delete_note/{note_id}")
+def delete_note(note_id:str, db:Session=Depends(get_db)):
 
-    save_data(data)
+    note=db.query(Note).filter(Note.id==note_id).first()
 
-    return JSONResponse(status_code=200, content={"message":"Note ID deleted successfully"})
-
-
-@app.put("/notes/{note_id}")
-def update(note_id:str, update_note:Updated_notes):
-    data=load_data()
-
-    if note_id not in data:
+    if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     
-    data[note_id]=update_note.model_dump(exclude=['id'])
+    db.delete(note)
 
-    save_data(data)
+    db.commit()
 
-    return JSONResponse(status_code=200, content={"message":"Updated successfully"})
+    return {"message":"Note deleted successfully"}
+
+@app.put("/update_note/{note_id}")
+def update_note(note_id:str, update_note:Updated_notes, db:Session=Depends(get_db)):
+    
+    note=db.query(Note).filter(note_id==Note.id).first()
+
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    note.title= update_note.title
+    note.category=update_note.category
+    note.content=update_note.content
+    note.author=update_note.author
+    note.completed=update_note.completed
+
+    db.commit()
+
+    return {"message":"Note updated successfully"}
 
 
 @app.get("/search")
-def search(title:str= Query(..., description="Title of note")):
-    data= load_data()
+def search(title:str, db:Session=Depends(get_db)):
 
-    result={}
+    note=db.query(Note).filter(Note.title.contains(title)).all()
 
-    for note_id, note in data.items():
-        if title.lower() in note.get("title","").lower():
-            result[note_id]=note
-
-    if not result:
+    if not note:
         raise HTTPException(status_code=404, detail="Title not found")
     
-    return result
+    return note
 
-@app.get("/filter_category")
-def filter(category:str=Query(description="Category name of note")):
-    data=load_data()
+@app.get("/filter")
+def filter(note_complete:bool, note_category:str, db:Session=Depends(get_db)):
 
-    result={}
+    note=db.query(Note).filter(
+        Note.category==note_category,
+        Note.completed==note_complete
+    ).all()
 
-    for note_id, note in data.items():
-        if note.get("category","")==category:
-            result[note_id]=note
-        
-    if not result:
-        raise HTTPException(status_code=404, detail="Information not found")
-    
-    return result
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
 
-@app.get("/filter_completed_notes")
-def filter(completed:bool=Query(description="Completion status of note")):
-    data=load_data()
-
-    result={}
-
-    for note_id, note in data.items():
-        if note.get("completed", "")==completed:
-            result[note_id]=note
-    
-    if not result:
-        raise HTTPException(status_code=404, detail="Information not found")
-    
-    return result
+    return note

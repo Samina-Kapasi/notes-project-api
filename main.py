@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException,Query, Depends
-from schemas import Notes, Updated_notes
+from schemas import Notes, Updated_notes, Create_user
 from database import engine, SessionLocal
-from models import Base, Note
+from models import Base, Note, Users
 from sqlalchemy.orm import Session
-
+from hashing import hash_password
 
 app= FastAPI()
 
@@ -114,3 +114,28 @@ def filter(note_complete:bool, note_category:str, db:Session=Depends(get_db)):
         raise HTTPException(status_code=404, detail="Note not found")
 
     return note
+
+@app.post("/signup")
+def signup(user:Create_user, db:Session=Depends(get_db) ):
+
+    existing_user=db.query(Users).filter(
+        Users.email==user.email
+    ).first()
+
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already exists")
+    
+    hashed_password=hash_password(user.password)
+
+    new_user=Users(
+        username= user.username,
+        email= user.email,
+        password= hashed_password
+    )
+
+    db.add(new_user)
+
+    db.commit()
+
+    return {"message":"User Signed Up successfully"}
+ 

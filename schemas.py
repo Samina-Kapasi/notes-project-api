@@ -16,3 +16,9 @@ class Updated_notes(BaseModel):
     category:Annotated[str, Optional, Field(description="Note category")]
     author:Annotated[str, Optional, Field(description="Author of the note")]
     completed:Annotated[bool, Optional, Field(description="Completion status of node")]
+
+class Create_user(BaseModel):
+
+    username:str
+    email:str
+    password:str

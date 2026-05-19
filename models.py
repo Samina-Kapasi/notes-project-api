@@ -1,4 +1,4 @@
-from sqlalchemy import String, Column, Boolean
+from sqlalchemy import String, Column, Boolean, Integer
 from database import Base
 
 class Note(Base):
@@ -10,4 +10,13 @@ class Note(Base):
     category=Column(String)
     author=Column(String)
     completed=Column(Boolean)
+
+
+class Users(Base):
+    __tablename__="users"
+
+    id=Column(Integer, primary_key=True , index=True)
+    username=Column(String)
+    email=Column(String, unique=True)
+    password=Column(String)
 

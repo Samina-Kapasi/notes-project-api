@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException,Query, Depends
-from schemas import Notes, Updated_notes, Create_user
+from schemas import Notes, Updated_notes, Create_user, login
 from database import engine, SessionLocal
 from models import Base, Note, Users
 from sqlalchemy.orm import Session
-from hashing import hash_password
+from hashing import hash_password, verify_password
 
 app= FastAPI()
 
@@ -138,4 +138,25 @@ def signup(user:Create_user, db:Session=Depends(get_db) ):
     db.commit()
 
     return {"message":"User Signed Up successfully"}
+
+
+@app.post("/login")
+def login(user:login, db:Session=Depends(get_db)):
+
+    existing_user=db.query(Users).filter(
+        user.email==Users.email
+    ).first()
+
+    if not existing_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    password_match=verify_password(
+        user.password,
+        existing_user.password
+    )
+
+    if not password_match:
+        raise HTTPException(status_code=401, detail="Invalid password ")
+    
+    return {"message":"Login successfully"}
  

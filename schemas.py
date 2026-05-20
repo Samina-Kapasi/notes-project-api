@@ -22,3 +22,9 @@ class Create_user(BaseModel):
     username:str
     email:str
     password:str
+
+class login(BaseModel):
+
+    email:str
+    password:str
+

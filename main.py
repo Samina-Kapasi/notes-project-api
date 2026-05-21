@@ -4,6 +4,7 @@ from database import engine, SessionLocal
 from models import Base, Note, Users
 from sqlalchemy.orm import Session
 from hashing import hash_password, verify_password
+from jwt_handler import create_access_token, get_current_user
 
 app= FastAPI()
 
@@ -158,5 +159,21 @@ def login(user:login, db:Session=Depends(get_db)):
     if not password_match:
         raise HTTPException(status_code=401, detail="Invalid password ")
     
-    return {"message":"Login successfully"}
+    token_access=create_access_token(data={
+        "sub":existing_user.email
+    })
+
+    return {
+        "access_token":token_access,
+        "token_type":"bearer"
+    }
+
+@app.get("/profile")
+def profile(current_user=Depends(get_current_user)):
+    
+    return {
+        "message":"Protected route accessed",
+        "user":current_user
+    }
+
  

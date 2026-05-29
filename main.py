@@ -5,6 +5,7 @@ from models import Base, Note, Users
 from sqlalchemy.orm import Session
 from hashing import hash_password, verify_password
 from jwt_handler import create_access_token, get_current_user
+from fastapi.security import OAuth2PasswordRequestForm
 
 app= FastAPI()
 
@@ -30,7 +31,7 @@ def test_db(db:Session= Depends(get_db)):
     return {"message":"Database connection working properly"}
 
 @app.post("/notes-db")
-def notes_db(notes:Notes, db:Session=Depends(get_db)):
+def notes_db(notes:Notes, db:Session=Depends(get_db), current_user:Users=Depends(get_current_user)):
     
     new_notes=Note(
         id=notes.id,
@@ -38,13 +39,15 @@ def notes_db(notes:Notes, db:Session=Depends(get_db)):
         content=notes.content,
         category=notes.category,
         author=notes.author,
-        completed=notes.completed
+        completed=notes.completed,
+        owner_id=current_user.id
     )
 
     db.add(new_notes)
     db.commit()
+    db.refresh(new_notes)
 
-    return {"message":"Record added successfully"}
+    return {"message":"Note created successfully"}
 
 @app.get("/get_notes")
 def get_notes(db:Session=Depends(get_db)):
@@ -142,17 +145,17 @@ def signup(user:Create_user, db:Session=Depends(get_db) ):
 
 
 @app.post("/login")
-def login(user:login, db:Session=Depends(get_db)):
+def login( db:Session=Depends(get_db), request:OAuth2PasswordRequestForm=Depends()):
 
     existing_user=db.query(Users).filter(
-        user.email==Users.email
+        Users.email==request.email
     ).first()
 
     if not existing_user:
         raise HTTPException(status_code=404, detail="User not found")
     
     password_match=verify_password(
-        user.password,
+        request.password,
         existing_user.password
     )
 

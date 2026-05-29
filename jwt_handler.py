@@ -4,8 +4,12 @@ from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 import os
+from database import SessionLocal
+from models import Users
 
+load_dotenv()
 SECRET_KEY=os.getenv("SECRET_KEY")
+
 
 ALGORITHM="HS256"
 
@@ -47,4 +51,10 @@ def get_current_user(token:str=Depends(Oauth2_scheme)):
 
     payload=verify_access_token(token)
 
-    return payload
+    email=payload.get("sub")
+
+    db=SessionLocal()
+
+    user=db.query(Users).filter(Users.email==email).first()
+
+    return user
